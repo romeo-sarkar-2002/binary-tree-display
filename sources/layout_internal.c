@@ -1,42 +1,40 @@
-#ifndef LAYOUT
-#define LAYOUT
+#ifndef LAYOUT_C
+#define LAYOUT_C
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "error.h"
-
+#include "error_internal.h"
 // enums
-typedef enum _NodeType { null_ = 0, not_null_ } _NodeType;
-typedef enum _ChildType { left_child_ = -1, root_, right_child_ } _ChildType;
-
-
+typedef enum _TypeNode { null_ = 0, not_null_ } _TypeNode;
+typedef enum _TypeChild { left_child_ = -1, root_, right_child_ } _TypeChild;
 
 typedef uint32_t uint;
 
-// declarations
+// declaration
 typedef struct Layout Layout;
 
-void            layout_print(const Layout *_layout);
-Layout         *layout_create(const void *_node, _ChildType _c, uint _level, uint _offset, Layout *_parent);
-Layout         *layout_generate_(const void *_node, _ChildType _flag, uint _level, uint _offset, Layout *_parent);
-static void     layout_recompute_offset(struct Layout *_l, uint _offset);
-void            layout_traverse_inorder(const Layout *_l);
-void            layout_destroy(Layout *_l);
-void            layout_destroy_recursive(Layout *_l);
-Layout         *layout_generate(const void *_node);
-int             layout_is_null(const Layout *_layout);
+Layout *layout_generate(const void *_node);
+void    layout_destroy_recursive(Layout *_l);
+
+void    layout_print(const Layout *_layout);
+void    layout_traverse_inorder(const Layout *_l);
+
+int     layout_is_null(const Layout *_layout);
+
+const Layout *layout_get_parent(const Layout *_layout);
+const Layout *layout_get_left_child(const Layout *_layout);
+const Layout *layout_get_right_child(const Layout *_layout);
 
 
 
-// Layout
 typedef struct Layout
 {
     char    *_str;
     
-    _ChildType  _c;
-    _NodeType   _n;
+    _TypeChild  _c;
+    _TypeNode   _n;
     
     uint    _level;
     
@@ -48,13 +46,12 @@ typedef struct Layout
     uint    _tree_offset;
     uint    _tree_width;
 
-    const struct Layout   *_parent;
+    const struct Layout         *_parent;
     struct Layout           *_left_child;
     struct Layout          *_right_child;
 } Layout;
 
 #define TAB "  "
-
 void layout_print(const Layout *_layout)
 {
     ERROR(layout_print, 0 == _layout, "_layout is (null)", return);
@@ -102,12 +99,25 @@ void layout_print(const Layout *_layout)
         printf(TAB "_right_child: %s\n", _layout->_right_child->_str);
     }
 }
+#undef TAB
 
+// function_pointers
+static const void *(*func_get_left_child_)(const void *node);
+static const void *(*func_get_right_child_)(const void *node);
+static char       *(*func_get_string_)(const void *node);
 
-// function pointers
-static const void *(*get_left_child_)(const void *node);
-static const void *(*get_right_child_)(const void *node);
-static char *(*get_string_)(const void *node);
+void layout_set_func_get_left_child(const void *(*_func_get_left_child)(const void *node))
+{
+    func_get_left_child_ = _func_get_left_child;
+}
+void layout_set_func_get_right_child(const void *(*_func_get_right_child)(const void *node))
+{
+    func_get_right_child_ = _func_get_right_child;
+}
+void layout_set_func_get_string(char *(*_func_get_string)(const void *node))
+{
+    func_get_string_ = _func_get_string;
+}
 
 
 static int max(int a, int b)
@@ -116,22 +126,20 @@ static int max(int a, int b)
     return b;
 }
 
-
 uint layout_str_width(const char *_str)
 {
     return strlen(_str);
 }
 
-
 char *layout_str_null()
 {
-    char *string = malloc(8);
-    string[0] = '$';
+    char *string = (char *)malloc(8);
+    string[0] = '*';
     string[1] = '\0';
     return string;
 }
 
-Layout *layout_create(const void *_node, _ChildType _c, uint _level, uint _offset, Layout *_parent)
+static Layout *layout_create(const void *_node, _TypeChild _c, uint _level, uint _offset, Layout *_parent)
 {
     Layout *l = (Layout *)malloc(sizeof(Layout));
     ERROR(layout_create, 0 == l, "malloc returned (null)", return 0);
@@ -148,7 +156,7 @@ Layout *layout_create(const void *_node, _ChildType _c, uint _level, uint _offse
 
     l->_level = _level;
 
-    l->_str = get_string_(_node);
+    l->_str = func_get_string_(_node);
     if(0 == l->_str || 0 == layout_str_width(l->_str))
     {
         l->_str = layout_str_null();
@@ -177,8 +185,7 @@ Layout *layout_create(const void *_node, _ChildType _c, uint _level, uint _offse
     return l;
 }
 
-
-Layout *layout_generate_(const void *_node, _ChildType _flag, uint _level, uint _offset, Layout *_parent)
+static Layout *layout_generate_(const void *_node, _TypeChild _flag, uint _level, uint _offset, Layout *_parent)
 {
     Layout *l = layout_create(_node, _flag, _level, _offset, _parent);
 
@@ -187,12 +194,12 @@ Layout *layout_generate_(const void *_node, _ChildType _flag, uint _level, uint 
         return l;
     }
     // left child
-    l->_left_child = layout_generate_(get_left_child_(_node), left_child_, 1 + _level, _offset, l);
+    l->_left_child = layout_generate_(func_get_left_child_(_node), left_child_, 1 + _level, _offset, l);
     // right child
-    l->_right_child = layout_generate_(get_right_child_(_node), right_child_, 1 + _level, _offset + l->_left_child->_tree_width + 1, l);
+    l->_right_child = layout_generate_(func_get_right_child_(_node), right_child_, 1 + _level, _offset + l->_left_child->_tree_width + 1, l);
     // width calculations =>
     int max_width_left;
-    // left_width:-
+    // left_width:
     {
         int subtree_width_left = l->_left_child->_tree_width;
         int str_width_left = l->_str_width_left;
@@ -211,13 +218,14 @@ Layout *layout_generate_(const void *_node, _ChildType _flag, uint _level, uint 
         }
     }
     int max_width_right;
-    // right_width:-
+    // right_width:
     {
         int subtree_width_right = l->_right_child->_tree_width;
         int str_width_right = l->_str_width_right;
 
         max_width_right = max(subtree_width_right, str_width_right);
     }
+    
     // setting the width value =>
     l->_tree_width = max_width_left + max_width_right + 1;
 
@@ -250,7 +258,7 @@ void layout_traverse_inorder(const Layout *_l)
     }
 }
 
-void layout_destroy(Layout *_l)
+static void layout_destroy(Layout *_l)
 {
     if(0 == _l)
     {
@@ -306,6 +314,5 @@ const Layout *layout_get_right_child(const Layout *_layout)
 {
     return _layout->_right_child;
 }
-
 
 #endif

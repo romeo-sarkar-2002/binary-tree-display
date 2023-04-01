@@ -1,21 +1,21 @@
-#ifndef DOUBLY_LINKED_LIST
-#define DOUBLY_LINKED_LIST
+#ifndef DOUBLY_LINKED_LIST_C
+#define DOUBLY_LINKED_LIST_C
 
-#include "layout.c"
 #include <stdio.h>
 #include <stdlib.h>
-#include "error.h"
+#include "layout_internal.c"
+#include "error_internal.h"
 
+// declaration
 typedef struct DoublyLinkedListNode DoublyLinkedListNode;
 
 DoublyLinkedListNode   *doubly_linked_list_node_create(const Layout *_layout);
-void                    doubly_linked_list_node_delete(DoublyLinkedListNode *_node);
-void                    doubly_linked_list_node_delete_recursive(DoublyLinkedListNode *_node);
-void                    doubly_linked_list_node_expand_left(DoublyLinkedListNode *_node);
-void                    doubly_linked_list_node_expand_right(DoublyLinkedListNode *_node);
-DoublyLinkedListNode   *doubly_linked_list_head(DoublyLinkedListNode *_node);
-void                    doubly_linked_list_print(DoublyLinkedListNode *_head);
+void                    doubly_linked_list_node_destroy_recursive(DoublyLinkedListNode *_node);
 
+void                    doubly_linked_list_node_expand(DoublyLinkedListNode *_node);
+void                    doubly_linked_list_node_print(DoublyLinkedListNode *_head);
+
+DoublyLinkedListNode   *doubly_linked_list_node_get_head(DoublyLinkedListNode *_node);
 
 
 typedef struct DoublyLinkedListNode // doubly linked list
@@ -35,7 +35,7 @@ DoublyLinkedListNode *doubly_linked_list_node_create(const Layout *_layout)
     return node;
 }
 
-void doubly_linked_list_node_delete(DoublyLinkedListNode *_node)
+static void doubly_linked_list_node_destroy(DoublyLinkedListNode *_node)
 {
     if(0 == _node)
     {
@@ -44,7 +44,7 @@ void doubly_linked_list_node_delete(DoublyLinkedListNode *_node)
     free(_node);
 }
 
-void doubly_linked_list_node_delete_recursive(DoublyLinkedListNode *_node)
+void doubly_linked_list_node_destroy_recursive(DoublyLinkedListNode *_node)
 {
     if(0 == _node)
     {
@@ -56,7 +56,7 @@ void doubly_linked_list_node_delete_recursive(DoublyLinkedListNode *_node)
     {
         DoublyLinkedListNode *removed_node = previous;
         previous = previous->_previous;
-        doubly_linked_list_node_delete(removed_node);
+        doubly_linked_list_node_destroy(removed_node);
     }
     // deleting all next nodes
     DoublyLinkedListNode *next = _node->_next;
@@ -64,17 +64,16 @@ void doubly_linked_list_node_delete_recursive(DoublyLinkedListNode *_node)
     {
         DoublyLinkedListNode *removed_node = next;
         next = next->_next;
-        doubly_linked_list_node_delete(removed_node);
+        doubly_linked_list_node_destroy(removed_node);
     }
     // deleting the current node
-    doubly_linked_list_node_delete(_node);
+    doubly_linked_list_node_destroy(_node);
 }
 
-void doubly_linked_list_node_expand_left(DoublyLinkedListNode *_node)
+static void doubly_linked_list_node_expand_left(DoublyLinkedListNode *_node)
 {
     ERROR(doubly_linked_list_node_expand_left, 0 == _node, "_node is (null)", return);
     const Layout *layout = layout_get_left_child(_node->_layout);
-    // printf("\"%s\" ", layout->_str);
     if(layout_is_null(layout))
     {
         return;
@@ -89,7 +88,7 @@ void doubly_linked_list_node_expand_left(DoublyLinkedListNode *_node)
     }
 }
 
-void doubly_linked_list_node_expand_right(DoublyLinkedListNode *_node)
+static void doubly_linked_list_node_expand_right(DoublyLinkedListNode *_node)
 {
     ERROR(doubly_linked_list_node_expand_left, 0 == _node, "_node is (null)", return);
     const Layout *layout = layout_get_right_child(_node->_layout);
@@ -113,7 +112,7 @@ void doubly_linked_list_node_expand(DoublyLinkedListNode *_node)
     doubly_linked_list_node_expand_right(_node);
 }
 
-DoublyLinkedListNode *doubly_linked_list_node_head(DoublyLinkedListNode *_node)
+DoublyLinkedListNode *doubly_linked_list_node_get_head(DoublyLinkedListNode *_node)
 {
     ERROR(doubly_linked_List_head, 0 == _node, "_node is (null)", return 0);
     while(_node->_previous)
