@@ -74,13 +74,7 @@ char *binary_tree_node_get_string(const void *_node)
 {
     if(0 == _node)
     {
-    #define LENGTH 32
-        char *p = (char *)malloc(sizeof(char) * (LENGTH + 1));
-        snprintf(p, LENGTH, "");
-        p[LENGTH] = 0;
-    #undef LENGTH
-        // return 0;
-        return p;
+        return 0;
     }
     const struct BinaryTreeNode *node = (BinaryTreeNode *)_node;
     return data_to_string(node->_data);
@@ -200,7 +194,7 @@ void queue_binary_tree_node_destory(QueueBinaryTreeNode *_queue)
     {
         QueueBinaryTreeNodeNode *next_queue_node = queue_node->_next;
         queue_binary_tree_node_node_destroy(queue_node);
-        queue_node = queue_node->_next;
+        queue_node = next_queue_node;
     }
 }
 

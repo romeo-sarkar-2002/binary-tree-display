@@ -9,41 +9,43 @@
 #include "doubly_linked_list_node_internal.c"
 #include "queue_layout_internal.c"
 
-#define DEBUG
-// #define NO_COLOR
-
-
+#define NO_COLOR
 
 #if defined(NO_COLOR)
-#define ELEMENT_STYLE ""
-#define STYLE_RESET ""
-#define NULL_ELEMENT_STYLE ""
-#define LINE_STYLE ""
-#define PROJECTION_LINE_STYLE ""
+    #define ELEMENT_STYLE ""
+    #define STYLE_RESET ""
+    #define NULL_ELEMENT_STYLE ""
+    // special characters used in drawing the branches of the tree
+    static char str_arr_[][3][8] = 
+    {
+        {"", "╭", ""},
+        {"", "╮", ""},
+        {"", "┷", ""},
+        {"", "━", ""},
+        {"", "┊", ""},
+        {"", " ", ""}
+    };
+
 #else
-#define ELEMENT_STYLE "\e[1;33m"
-#define STYLE_RESET "\e[m"
-#define NULL_ELEMENT_STYLE "\033[1;90m"
+    #define ELEMENT_STYLE "\e[1;33m"
+    #define STYLE_RESET "\e[m"
+    #define NULL_ELEMENT_STYLE "\033[1;90m"
+    // special characters used in drawing the branches of the tree
+    static char str_arr_[][3][8] = 
+    {// {suffix,        string,     prefix}
+        {"\033[1;92m",  "╭",        "\e[m"},
+        {"\033[1;92m",  "╮",        "\e[m"},
+        {"\033[1;91m",  "┷",        "\e[m"},
+        {"\033[1;91m",  "━",        "\e[m"},
+        {"\e[1;90m",    "┊",        "\e[m"},
+        {"\e[1;90m",    " ",        "\e[m"}
+    };
+
 #endif
 
-
-#define STRING_SIZE 8
-// special characters used in drawing the branches of the tree
-static char str_arr_[][3][STRING_SIZE] = 
-{// {suffix,        string,     prefix}
-    {"\033[1;92m",  "╭",        "\e[m"},
-    {"\033[1;92m",  "╮",        "\e[m"},
-    {"\033[1;91m",  "┷",        "\e[m"},
-    {"\033[1;91m",  "━",        "\e[m"},
-    {"\e[1;90m",    "┊",        "\e[m"},
-    {"\e[1;90m",    " ",        "\e[m"}
-};
 #define STR_ARR_(n) str_arr_[n][0], str_arr_[n][1], str_arr_[n][2]
 #define PRINT_STR_ARR_(n) printf("%s%s%s", STR_ARR_(n));
 #undef STRING_SIZE
-
-
-
 
 void repeat_printf(const char *_prefix, const char *_str, const char *_suffix, uint _n)
 {
@@ -86,94 +88,98 @@ static void binary_tree_display_(const Layout *_layout)
     {
         const uint level = queue_node->_layout->_level;
 
-        print_1: // =>    ┊  ┊  ┊ ╭┴╮ ┊  ┊ ╭┴────────╮  ┊  
+        // part_1  => "   ┊  ┊  ┊ ╭┴╮ ┊  ┊ ╭┴────────╮  ┊  "
         {
             uint total_offset = 0;
             QueueLayoutNode *qnode = queue_node;
             DoublyLinkedListNode *list_node = list_head;
             
-            if(0 == level)
+            if(0 != level)
             {
-                goto exit_print_1;
-            }
-
-            _1_part_1: // ┊  ┊  ┊ ╭┴╮ ┊  ┊ ╭┴────────╮
-            while(0 != qnode && qnode->_layout->_level == level)
-            {
-                const Layout *layout_parent = qnode->_layout->_parent;
-                const Layout *layout_left_child = qnode->_layout;
-                const Layout *layout_right_child = qnode->_next->_layout;
-
-                //  ┊  ┊  ┊ 
-                while(list_node->_layout != layout_parent)
+                // part_1_of_part_1  => "┊  ┊  ┊ ╭┴╮ ┊  ┊ ╭┴────────╮"
+                while(0 != qnode && qnode->_layout->_level == level)
                 {
-                    const Layout *layout = list_node->_layout;
-                    uint offset = layout->_str_offset + layout->_str_width_left;
-                    // offset
-                    repeat_printf(STR_ARR_(5), offset - total_offset);
-                    total_offset = offset;
-                    // ┊
-                    PRINT_STR_ARR_(4);
-                    total_offset++;
+                    const Layout *layout_parent = qnode->_layout->_parent;
+                    const Layout *layout_left_child = qnode->_layout;
+                    const Layout *layout_right_child = qnode->_next->_layout;
+
+                    //  ┊  ┊  ┊ 
+                    while(list_node->_layout != layout_parent)
+                    {
+                        const Layout *layout = list_node->_layout;
+                        uint offset = layout->_str_offset + layout->_str_width_left;
+                        // offset
+                        repeat_printf(STR_ARR_(5), offset - total_offset);
+                        total_offset = offset;
+                        // ┊
+                        PRINT_STR_ARR_(4);
+                        total_offset++;
+
+                        list_node = list_node->_next;
+                    }
+
+                    //     ╭──┴──╮     
+                    {
+                        // offset
+                        uint offset = layout_left_child->_str_offset + layout_left_child->_str_width_left;
+                        repeat_printf(STR_ARR_(5), offset - total_offset);
+                        total_offset = offset;
+
+                        // print ╭
+                        PRINT_STR_ARR_(0);
+                        total_offset++;
+
+                        // ─
+                        offset = layout_parent->_str_offset + layout_parent->_str_width_left;
+                        repeat_printf(STR_ARR_(3), offset - total_offset);
+                        total_offset = offset;
+
+                        // ┴
+                        PRINT_STR_ARR_(2);
+                        total_offset++;
+
+                        // ─
+                        offset = layout_right_child->_str_offset + layout_right_child->_str_width_left;
+                        repeat_printf(STR_ARR_(3), offset - total_offset);
+                        total_offset = offset;
+
+                        // ╮
+                        PRINT_STR_ARR_(1);
+                        total_offset++;
+                    }
+
 
                     list_node = list_node->_next;
+                    qnode = qnode->_next->_next;
                 }
 
-                //     ╭──┴──╮     
+                // part_2_of_part_1  => "┊  ┊  ┊"
                 {
-                    // offset
-                    uint offset = layout_left_child->_str_offset + layout_left_child->_str_width_left;
-                    repeat_printf(STR_ARR_(5), offset - total_offset);
-                    total_offset = offset;
-                    // print ╭
-                    PRINT_STR_ARR_(0);
-                    total_offset++;
-                    // ─
-                    offset = layout_parent->_str_offset + layout_parent->_str_width_left;
-                    repeat_printf(STR_ARR_(3), offset - total_offset);
-                    total_offset = offset;
-                    // ┴
-                    PRINT_STR_ARR_(2);
-                    total_offset++;
-                    // ─
-                    offset = layout_right_child->_str_offset + layout_right_child->_str_width_left;
-                    repeat_printf(STR_ARR_(3), offset - total_offset);
-                    total_offset = offset;
-                    // ╮
-                    PRINT_STR_ARR_(1);
-                    total_offset++;
+                    while(list_node)
+                    {
+                        const Layout *layout = list_node->_layout;
+                        uint offset = layout->_str_offset + layout->_str_width_left;
+                        // offset
+                        repeat_printf(STR_ARR_(5), offset - total_offset);
+                        total_offset = offset;
+                        // ┊
+                        PRINT_STR_ARR_(4);
+                        total_offset++;
+
+                        list_node = list_node->_next;
+                    }
                 }
 
-                // update 'list_node' & 'qnode'
-                list_node = list_node->_next;
-                qnode = qnode->_next->_next;
+                // align:
+                repeat_printf(STR_ARR_(5), max_width - total_offset);
             }
-
-            _1_part_2: //  ┊  ┊  ┊ 
-            {
-                while(list_node)
-                {
-                    const Layout *layout = list_node->_layout;
-                    uint offset = layout->_str_offset + layout->_str_width_left;
-                    // offset
-                    repeat_printf(STR_ARR_(5), offset - total_offset);
-                    total_offset = offset;
-                    // ┊
-                    PRINT_STR_ARR_(4);
-                    total_offset++;
-
-                    list_node = list_node->_next;
-                }
-            }
-            // align:
-            repeat_printf(STR_ARR_(5), max_width - total_offset);
-        }
-        exit_print_1:;
+        }// end of part_1;
 
         printf("\n"); // => newline
 
 
-        print_2:  // =>    ┊  ┊  ┊ *┊* ┊  ┊ *      (9,9)┊  
+
+        // part_2  => " ┊  ┊  ┊ *┊* ┊  ┊ *      (9,9)┊  "
         {
             uint total_offset = 0;
             QueueLayoutNode *qnode = queue_node;
@@ -196,111 +202,119 @@ static void binary_tree_display_(const Layout *_layout)
                 }
                 offset += layout_root->_str_width;
 
-                // align:
+                // align  => " "
                 repeat_printf(STR_ARR_(5), max_width - offset);
                 
                 // update 'queue_node'
                 queue_node = queue_node->_next;
-                goto exit_print_2;
+            }
+            else
+            {
+                // part_1_of_part_2  => " ┊  ┊  ┊ *┊* ┊  ┊ *      (9,9)"
+                while(0 != qnode && qnode->_layout->_level == level)
+                {
+                    const Layout *layout_parent = qnode->_layout->_parent;
+                    const Layout *layout_left_child = qnode->_layout;
+                    const Layout *layout_right_child = qnode->_next->_layout;
+                    
+                    //  ┊  ┊  ┊ 
+                    while(list_node->_layout != layout_parent)
+                    {
+                        const Layout *layout = list_node->_layout;
+                        uint offset = layout->_str_offset + layout->_str_width_left;
+
+                        // offset
+                        repeat_printf(STR_ARR_(5), offset - total_offset);
+                        total_offset = offset;
+
+                        // ┊
+                        PRINT_STR_ARR_(4);
+                        total_offset++;
+
+
+                        list_node = list_node->_next;
+                    }
+
+                    // *┊(2,7)
+                    {
+                        // offset
+                        uint offset = layout_left_child->_str_offset;
+                        repeat_printf(STR_ARR_(5), offset - total_offset);
+                        total_offset = offset;
+
+                        // string
+                        if(layout_is_null(layout_left_child))
+                        {
+                            printf(NULL_ELEMENT_STYLE "%s" STYLE_RESET, layout_left_child->_str);
+                        }
+                        else
+                        {
+                            printf(ELEMENT_STYLE "%s" STYLE_RESET, layout_left_child->_str);
+                        }
+                        total_offset += layout_left_child->_str_width;
+
+                        // offset
+                        offset = layout_parent->_str_offset + layout_parent->_str_width_left;
+                        repeat_printf(STR_ARR_(5), offset - total_offset);
+                        total_offset = offset;
+
+                        // ┊
+                        PRINT_STR_ARR_(4);
+                        total_offset++;
+
+                        // offset
+                        offset = layout_right_child->_str_offset;
+                        repeat_printf(STR_ARR_(5), offset - total_offset);
+                        total_offset = offset;
+
+                        // string
+                        if(layout_is_null(layout_right_child))
+                        {
+                            printf(NULL_ELEMENT_STYLE "%s" STYLE_RESET, layout_right_child->_str);
+                        }
+                        else
+                        {
+                            printf(ELEMENT_STYLE "%s" STYLE_RESET, layout_right_child->_str);
+                        }
+                        total_offset += layout_right_child->_str_width;
+                    }
+
+
+                    DoublyLinkedListNode *previous_list_node = list_node;
+                    list_node = list_node->_next;
+                    doubly_linked_list_node_expand(previous_list_node);
+                    qnode = qnode->_next->_next;
+                }
+
+                // part_2_of_part_2  => " ┊  ┊  ┊"
+                {
+                    while(list_node)
+                    {
+                        const Layout *layout = list_node->_layout;
+                        uint offset = layout->_str_offset + layout->_str_width_left;
+                        // offset
+                        repeat_printf(STR_ARR_(5), offset - total_offset);
+                        total_offset = offset;
+                        // ┊
+                        PRINT_STR_ARR_(4);
+                        total_offset++;
+                        list_node = list_node->_next;
+                    }
+                }
+
+
+                // align  => " "
+                repeat_printf(STR_ARR_(5), max_width - total_offset);
+
+                queue_node = qnode;
             }
             
-            _2_part_1: //    ┊  ┊  ┊ *┊* ┊  ┊ *      (9,9)
-            while(0 != qnode && qnode->_layout->_level == level)
-            {
-                const Layout *layout_parent = qnode->_layout->_parent;
-                const Layout *layout_left_child = qnode->_layout;
-                const Layout *layout_right_child = qnode->_next->_layout;
-                
-                //  ┊  ┊  ┊ 
-                while(list_node->_layout != layout_parent)
-                {
-                    const Layout *layout = list_node->_layout;
-                    uint offset = layout->_str_offset + layout->_str_width_left;
-                    // offset
-                    repeat_printf(STR_ARR_(5), offset - total_offset);
-                    total_offset = offset;
-                    // ┊
-                    PRINT_STR_ARR_(4);
-                    total_offset++;
-
-                    list_node = list_node->_next;
-                }
-
-                // *┊(2,7)
-                {
-                    // offset
-                    uint offset = layout_left_child->_str_offset;
-                    repeat_printf(STR_ARR_(5), offset - total_offset);
-                    total_offset = offset;
-                    // string
-                    if(layout_is_null(layout_left_child))
-                    {
-                        printf(NULL_ELEMENT_STYLE "%s" STYLE_RESET, layout_left_child->_str);
-                    }
-                    else
-                    {
-                        printf(ELEMENT_STYLE "%s" STYLE_RESET, layout_left_child->_str);
-                    }
-                    total_offset += layout_left_child->_str_width;
-                    // offset
-                    offset = layout_parent->_str_offset + layout_parent->_str_width_left;
-                    repeat_printf(STR_ARR_(5), offset - total_offset);
-                    total_offset = offset;
-                    // ┊
-                    PRINT_STR_ARR_(4);
-                    total_offset++;
-                    // offset
-                    offset = layout_right_child->_str_offset;
-                    repeat_printf(STR_ARR_(5), offset - total_offset);
-                    total_offset = offset;
-                    // string
-                    if(layout_is_null(layout_right_child))
-                    {
-                        printf(NULL_ELEMENT_STYLE "%s" STYLE_RESET, layout_right_child->_str);
-                    }
-                    else
-                    {
-                        printf(ELEMENT_STYLE "%s" STYLE_RESET, layout_right_child->_str);
-                    }
-                    total_offset += layout_right_child->_str_width;
-
-                }
-
-                // updating 'list_node' & 'qnode'
-                DoublyLinkedListNode *previous_list_node = list_node;
-                list_node = list_node->_next;
-                doubly_linked_list_node_expand(previous_list_node);
-                qnode = qnode->_next->_next;
-            }
-
-            _2_part_2://  ┊  ┊  ┊ 
-            {
-                while(list_node)
-                {
-                    const Layout *layout = list_node->_layout;
-                    uint offset = layout->_str_offset + layout->_str_width_left;
-                    // offset
-                    repeat_printf(STR_ARR_(5), offset - total_offset);
-                    total_offset = offset;
-                    // ┊
-                    PRINT_STR_ARR_(4);
-                    total_offset++;
-                    list_node = list_node->_next;
-                }
-            }
-            // align:
-            repeat_printf(STR_ARR_(5), max_width - total_offset);
-
-            // update 'queue_node'
-            queue_node = qnode;
-        }
-        exit_print_2:;
+        } // end of part_2
 
         printf("\n"); // => newline
 
-        // update 'list_head'
-        list_head = doubly_linked_list_node_get_head(list_head);
 
+        list_head = doubly_linked_list_node_get_head(list_head);
     }
 
     
@@ -321,6 +335,5 @@ void binary_tree_display(void *_node, const void *(*_func_get_left_child)(const 
 
     layout_destroy(l);
 }
-
 
 #endif
